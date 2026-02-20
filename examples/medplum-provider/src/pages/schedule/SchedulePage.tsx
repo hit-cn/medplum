@@ -19,6 +19,7 @@ import type { Range } from '../../types/scheduling';
 import classes from './SchedulePage.module.css';
 import { serviceTypesFromSchedulingParameters } from '../../utils/scheduling';
 import { FindPane } from './FindPane';
+import { FullHeight } from '../../components/layout/FullHeight';
 
 /**
  * Schedule page that displays the practitioner's schedule.
@@ -176,7 +177,6 @@ export function SchedulePage(): JSX.Element | null {
     [medplum, navigate, appointmentDetailsHandlers]
   );
 
-  const height = window.innerHeight - 60;
   const serviceTypes = useMemo(() => schedule && serviceTypesFromSchedulingParameters(schedule), [schedule]);
 
   const handleAppointmentUpdate = useCallback((updated: Appointment) => {
@@ -185,27 +185,29 @@ export function SchedulePage(): JSX.Element | null {
   }, []);
 
   return (
-    <Box pos="relative" bg="white" p="md" style={{ height }}>
-      <div className={classes.container}>
-        <div className={classes.calendar}>
-          <Calendar
-            style={{ height: height - 150 }}
-            onSelectInterval={handleSelectInterval}
-            onSelectAppointment={handleSelectAppointment}
-            onSelectSlot={handleSelectSlot}
-            slots={slots ?? []}
-            appointments={appointments ?? []}
-            onRangeChange={setRange}
-          />
-        </div>
+    <>
+      <FullHeight>
+        <Box pos="relative" bg="white" p="md" h="100%">
+          <div className={classes.container}>
+            <div className={classes.calendar}>
+              <Calendar
+                onSelectInterval={handleSelectInterval}
+                onSelectAppointment={handleSelectAppointment}
+                onSelectSlot={handleSelectSlot}
+                slots={slots ?? []}
+                appointments={appointments ?? []}
+                onRangeChange={setRange}
+              />
+            </div>
 
-        {Boolean(serviceTypes?.length) && schedule && range && (
-          <Stack gap="md" justify="space-between" className={classes.findPane}>
-            <FindPane key={schedule.id} schedule={schedule} range={range} onSuccess={handleBookSuccess} />
-          </Stack>
-        )}
-      </div>
-
+            {Boolean(serviceTypes?.length) && schedule && range && (
+              <Stack gap="md" justify="space-between" className={classes.findPane}>
+                <FindPane key={schedule.id} schedule={schedule} range={range} onSuccess={handleBookSuccess} />
+              </Stack>
+            )}
+          </div>
+        </Box>
+      </FullHeight>
       {/* Modals */}
       <Drawer
         opened={createAppointmentOpened}
@@ -231,6 +233,6 @@ export function SchedulePage(): JSX.Element | null {
           <AppointmentDetails appointment={appointmentDetails} onUpdate={handleAppointmentUpdate} />
         )}
       </Drawer>
-    </Box>
+    </>
   );
 }
