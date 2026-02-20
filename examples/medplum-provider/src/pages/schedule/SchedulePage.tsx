@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
-import { Box, Drawer, Stack, Text } from '@mantine/core';
+import { Box, Center, Drawer, Loader, Stack, Text } from '@mantine/core';
 import { useDisclosure } from '@mantine/hooks';
 import { createReference, EMPTY, getReferenceString } from '@medplum/core';
 import type { WithId } from '@medplum/core';
@@ -27,18 +27,9 @@ import { FullHeight } from '../../components/layout/FullHeight';
  * @returns A React component that displays the schedule page.
  */
 export function SchedulePage(): JSX.Element | null {
-  const navigate = useNavigate();
   const medplum = useMedplum();
   const profile = useMedplumProfile() as Practitioner;
-  const [createAppointmentOpened, createAppointmentHandlers] = useDisclosure(false);
-  const [appointmentDetailsOpened, appointmentDetailsHandlers] = useDisclosure(false);
   const [schedule, setSchedule] = useState<WithId<Schedule> | undefined>();
-  const [range, setRange] = useState<Range | undefined>(undefined);
-  const [slots, setSlots] = useState<Slot[] | undefined>(undefined);
-  const [appointments, setAppointments] = useState<Appointment[] | undefined>(undefined);
-
-  const [appointmentSlot, setAppointmentSlot] = useState<Range>();
-  const [appointmentDetails, setAppointmentDetails] = useState<Appointment | undefined>(undefined);
 
   useEffect(() => {
     if (medplum.isLoading() || !profile) {
@@ -66,9 +57,42 @@ export function SchedulePage(): JSX.Element | null {
       .catch(showErrorNotification);
   }, [medplum, profile]);
 
+  return (
+    <FullHeight>
+      <Box pos="relative" bg="white" p="md" h="100%">
+        {schedule ? (
+          <SchedulePageContent schedule={schedule} />
+        ) : (
+          <Center>
+            <Loader pt="xl" />
+          </Center>
+        )}
+      </Box>
+    </FullHeight>
+  );
+}
+
+type SchedulePageContentProps = {
+  schedule: WithId<Schedule>;
+};
+
+export function SchedulePageContent(props: SchedulePageContentProps): JSX.Element | null {
+  const { schedule } = props;
+  const navigate = useNavigate();
+  const medplum = useMedplum();
+  const profile = useMedplumProfile() as Practitioner;
+  const [createAppointmentOpened, createAppointmentHandlers] = useDisclosure(false);
+  const [appointmentDetailsOpened, appointmentDetailsHandlers] = useDisclosure(false);
+  const [range, setRange] = useState<Range | undefined>(undefined);
+  const [slots, setSlots] = useState<Slot[] | undefined>(undefined);
+  const [appointments, setAppointments] = useState<Appointment[] | undefined>(undefined);
+
+  const [appointmentSlot, setAppointmentSlot] = useState<Range>();
+  const [appointmentDetails, setAppointmentDetails] = useState<Appointment | undefined>(undefined);
+
   // Find slots visible in the current range
   useEffect(() => {
-    if (!schedule || !range) {
+    if (!range) {
       return () => {};
     }
     let active = true;
@@ -177,7 +201,7 @@ export function SchedulePage(): JSX.Element | null {
     [medplum, navigate, appointmentDetailsHandlers]
   );
 
-  const serviceTypes = useMemo(() => schedule && serviceTypesFromSchedulingParameters(schedule), [schedule]);
+  const serviceTypes = useMemo(() => serviceTypesFromSchedulingParameters(schedule), [schedule]);
 
   const handleAppointmentUpdate = useCallback((updated: Appointment) => {
     setAppointments((state) => (state ?? []).map((existing) => (existing.id === updated.id ? updated : existing)));
@@ -186,28 +210,24 @@ export function SchedulePage(): JSX.Element | null {
 
   return (
     <>
-      <FullHeight>
-        <Box pos="relative" bg="white" p="md" h="100%">
-          <div className={classes.container}>
-            <div className={classes.calendar}>
-              <Calendar
-                onSelectInterval={handleSelectInterval}
-                onSelectAppointment={handleSelectAppointment}
-                onSelectSlot={handleSelectSlot}
-                slots={slots ?? []}
-                appointments={appointments ?? []}
-                onRangeChange={setRange}
-              />
-            </div>
+      <div className={classes.container}>
+        <div className={classes.calendar}>
+          <Calendar
+            onSelectInterval={handleSelectInterval}
+            onSelectAppointment={handleSelectAppointment}
+            onSelectSlot={handleSelectSlot}
+            slots={slots ?? []}
+            appointments={appointments ?? []}
+            onRangeChange={setRange}
+          />
+        </div>
 
-            {Boolean(serviceTypes?.length) && schedule && range && (
-              <Stack gap="md" justify="space-between" className={classes.findPane}>
-                <FindPane key={schedule.id} schedule={schedule} range={range} onSuccess={handleBookSuccess} />
-              </Stack>
-            )}
-          </div>
-        </Box>
-      </FullHeight>
+        {Boolean(serviceTypes?.length) && range && (
+          <Stack gap="md" justify="space-between" className={classes.findPane}>
+            <FindPane key={schedule.id} schedule={schedule} range={range} onSuccess={handleBookSuccess} />
+          </Stack>
+        )}
+      </div>
       {/* Modals */}
       <Drawer
         opened={createAppointmentOpened}
