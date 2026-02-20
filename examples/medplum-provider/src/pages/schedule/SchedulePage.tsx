@@ -17,9 +17,10 @@ import { Calendar } from '../../components/Calendar';
 import { mergeOverlappingSlots } from '../../utils/slots';
 import type { Range } from '../../types/scheduling';
 import classes from './SchedulePage.module.css';
-import { serviceTypesFromSchedulingParameters } from '../../utils/scheduling';
 import { FindPane } from './FindPane';
 import { FullHeight } from '../../components/layout/FullHeight';
+import { SchedulingContextProvider } from '../../contexts/SchedulingContext';
+import { useScheduling } from '../../hooks/useScheduling';
 
 /**
  * Schedule page that displays the practitioner's schedule.
@@ -57,18 +58,25 @@ export function SchedulePage(): JSX.Element | null {
       .catch(showErrorNotification);
   }, [medplum, profile]);
 
+  // This looks slightly silly now, but will let us merge ActivityDefinition
+  // resources that provide scheduling parameters in to a stable array in the
+  // future.
+  const schedulingResources = useMemo(() => [schedule], [schedule]);
+
   return (
-    <FullHeight>
-      <Box pos="relative" bg="white" p="md" h="100%">
-        {schedule ? (
-          <SchedulePageContent schedule={schedule} />
-        ) : (
-          <Center>
-            <Loader pt="xl" />
-          </Center>
-        )}
-      </Box>
-    </FullHeight>
+    <SchedulingContextProvider resources={schedulingResources}>
+      <FullHeight>
+        <Box pos="relative" bg="white" p="md" h="100%">
+          {schedule ? (
+            <SchedulePageContent schedule={schedule} />
+          ) : (
+            <Center>
+              <Loader pt="xl" />
+            </Center>
+          )}
+        </Box>
+      </FullHeight>
+    </SchedulingContextProvider>
   );
 }
 
@@ -81,6 +89,7 @@ export function SchedulePageContent(props: SchedulePageContentProps): JSX.Elemen
   const navigate = useNavigate();
   const medplum = useMedplum();
   const profile = useMedplumProfile() as Practitioner;
+  const scheduling = useScheduling();
   const [createAppointmentOpened, createAppointmentHandlers] = useDisclosure(false);
   const [appointmentDetailsOpened, appointmentDetailsHandlers] = useDisclosure(false);
   const [range, setRange] = useState<Range | undefined>(undefined);
@@ -201,7 +210,7 @@ export function SchedulePageContent(props: SchedulePageContentProps): JSX.Elemen
     [medplum, navigate, appointmentDetailsHandlers]
   );
 
-  const serviceTypes = useMemo(() => serviceTypesFromSchedulingParameters(schedule), [schedule]);
+  const hasScheduling = scheduling.availableSchedulingParameters.length > 0;
 
   const handleAppointmentUpdate = useCallback((updated: Appointment) => {
     setAppointments((state) => (state ?? []).map((existing) => (existing.id === updated.id ? updated : existing)));
@@ -222,7 +231,7 @@ export function SchedulePageContent(props: SchedulePageContentProps): JSX.Elemen
           />
         </div>
 
-        {Boolean(serviceTypes?.length) && range && (
+        {hasScheduling && range && (
           <Stack gap="md" justify="space-between" className={classes.findPane}>
             <FindPane key={schedule.id} schedule={schedule} range={range} onSuccess={handleBookSuccess} />
           </Stack>
