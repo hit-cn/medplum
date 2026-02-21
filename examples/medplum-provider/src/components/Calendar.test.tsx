@@ -5,6 +5,7 @@ import type { Appointment, Slot } from '@medplum/fhirtypes';
 import { Calendar } from './Calendar';
 import type { Range } from '../types/scheduling';
 import { describe, expect, test, vi } from 'vitest';
+import { SchedulingContextProvider } from '../contexts/SchedulingContext';
 
 // Mock document.elementFromPoint for react-big-calendar Selection
 document.elementFromPoint = vi.fn(() => null);
@@ -65,14 +66,16 @@ describe('Calendar', () => {
     onRangeChange?: (range: Range) => void;
   } = {}): ReturnType<typeof render> => {
     return render(
-      <Calendar
-        slots={slots}
-        appointments={appointments}
-        onSelectInterval={onSelectInterval}
-        onSelectSlot={onSelectSlot}
-        onSelectAppointment={onSelectAppointment}
-        onRangeChange={onRangeChange}
-      />
+      <SchedulingContextProvider resources={[]}>
+        <Calendar
+          slots={slots}
+          appointments={appointments}
+          onSelectInterval={onSelectInterval}
+          onSelectSlot={onSelectSlot}
+          onSelectAppointment={onSelectAppointment}
+          onRangeChange={onRangeChange}
+        />
+      </SchedulingContextProvider>
     );
   };
 

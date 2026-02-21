@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: Copyright Orangebot, Inc. and Medplum contributors
 // SPDX-License-Identifier: Apache-2.0
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useMemo, useState, useEffect } from 'react';
 import type { JSX } from 'react';
 import { Button, Group, SegmentedControl, Title } from '@mantine/core';
 import type { Appointment, Slot } from '@medplum/fhirtypes';
@@ -12,7 +12,9 @@ import utc from 'dayjs/plugin/utc';
 import { IconChevronLeft, IconChevronRight } from '@tabler/icons-react';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import type { Range } from '../types/scheduling';
-import { SchedulingTransientIdentifier } from '../utils/scheduling';
+import { DayMap, toMinutes, SchedulingTransientIdentifier } from '../utils/scheduling';
+import classes from './Calendar.module.css';
+import { useScheduling } from '../hooks/useScheduling';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -21,6 +23,12 @@ dayjs.tz.setDefault(dayjs.tz.guess());
 type AppointmentEvent = Event & { type: 'appointment'; appointment: Appointment; start: Date; end: Date };
 type SlotEvent = Event & { type: 'slot'; slot: Slot; status: string; start: Date; end: Date };
 type ScheduleEvent = AppointmentEvent | SlotEvent;
+
+type TimeSlotWrapperProps = {
+  value: Date;
+  resource: unknown;
+  children: React.ReactNode;
+};
 
 export const CalendarToolbar = (props: ToolbarProps<ScheduleEvent>): JSX.Element => {
   const [firstRender, setFirstRender] = useState(true);
@@ -141,6 +149,7 @@ export function Calendar(props: {
   const [view, setView] = useState<View>('week');
   const [date, setDate] = useState<Date>(new Date());
   const [range, setRange] = useState<Range | undefined>();
+  const { selectedSchedulingParameters } = useScheduling();
 
   const { onRangeChange } = props;
   const handleRangeChange = useCallback(
@@ -188,9 +197,46 @@ export function Calendar(props: {
 
   const backgroundEvents = slotsToEvents(props.slots.filter((slot) => !SchedulingTransientIdentifier.get(slot)));
 
+  const TimeSlotWrapper = useMemo(() => {
+    if (!selectedSchedulingParameters) {
+      return undefined;
+    }
+    const availability = selectedSchedulingParameters.extension.find((ext) => ext.url === 'availability');
+    if (!availability) {
+      return undefined;
+    }
+
+    const details = availability.valueTiming.repeat;
+
+    const dayOfWeek = new Set(details.dayOfWeek.map((day) => DayMap[day]));
+    const starts = details.timeOfDay.map((time) => {
+      const [hour, minute, _second] = time.split(':').map(Number);
+      return hour * 60 + minute;
+    });
+    const duration = toMinutes(details.duration, details.durationUnit);
+    const isAvailable = (value: Date): boolean => {
+      if (!dayOfWeek.has(value.getDay() as 0 | 1 | 2 | 3 | 4 | 5 | 6)) {
+        return false;
+      }
+      const minute = value.getHours() * 60 + value.getMinutes();
+      return starts.some((start) => start <= minute && minute < start + duration);
+    };
+
+    return function TimeSlotWrapper(props: TimeSlotWrapperProps) {
+      const { value } = props;
+      if (isAvailable(value)) {
+        return <>{props.children}</>;
+      }
+      return <div className={classes.unavailable}>{props.children}</div>;
+    };
+  }, [selectedSchedulingParameters]);
+
   return (
     <ReactBigCalendar
-      components={{ toolbar: CalendarToolbar }}
+      components={{
+        toolbar: CalendarToolbar,
+        timeSlotWrapper: TimeSlotWrapper as React.ComponentType,
+      }}
       view={view}
       date={date}
       localizer={dayjsLocalizer(dayjs)}
