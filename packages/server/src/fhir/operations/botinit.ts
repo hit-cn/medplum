@@ -16,7 +16,7 @@ import type {
 import { Readable } from 'node:stream';
 import { getConfig } from '../../config/loader';
 import { getAuthenticatedContext } from '../../context';
-import type { Repository} from '../../fhir/repo';
+import type { Repository } from '../../fhir/repo';
 import { getGlobalSystemRepo } from '../../fhir/repo';
 import { getBinaryStorage } from '../../storage/loader';
 import { buildOutputParameters, parseInputParameters } from './utils/parameters';
